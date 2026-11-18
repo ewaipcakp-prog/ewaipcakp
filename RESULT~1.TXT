@@ -1,0 +1,30 @@
+MCQEXAM Admin Results Delete Patch
+=================================
+
+Adds Delete button, confirmation, and Firestore deleteDoc for each row.
+Supports both results/{resultId} and users/{uid}/results/{resultId}.
+Only the selected result document is deleted. Export CSV remains available.
+
+INSTALL (PowerShell):
+  cd C:\FlutterProjects\MCQEXAM_Admin  # replace with your actual admin project folder
+  Set-ExecutionPolicy -Scope Process Bypass -Force
+  & "<extracted folder>\apply_results_delete.ps1" -ProjectPath (Get-Location).Path
+
+DEPLOY from project folder:
+  firebase deploy --only hosting
+
+IMPORTANT: Existing firestore.rules grants admins deletion for nested
+users/{uid}/results, but DOES NOT define access to top-level results.
+If you use top-level results, merge appropriate admin-only permissions
+into your CURRENT deployed rules, without overwriting other existing rules:
+
+  match /results/{resultId} {
+    allow read, delete: if isAdmin();
+  }
+
+This snippet does NOT authorize student result creation; retain your
+existing student create rules if used. Do not blindly deploy the ZIP's
+older firestore.rules over your live rules.
+
+A deleted result can permit a student to retake the exam if the student
+app determines completion solely from that result.

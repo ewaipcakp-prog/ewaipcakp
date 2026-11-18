@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signedIn() { return request.auth != null; }
+  function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true; }
+  match /admins/{uid} {
+   allow get: if signedIn() && request.auth.uid == uid;
+   allow list, create, update, delete: if false;
+  }
+  match /papers/{paperId} {
+   allow read: if isAdmin() || (signedIn() && resource.data.published == true);
+   allow create, update, delete: if isAdmin();
+   match /questions/{questionId} {
+    allow read: if isAdmin() || (signedIn() && get(/databases/$(database)/documents/papers/$(paperId)).data.published == true);
+    allow write: if isAdmin();
+   }
+  }
+  match /users/{uid} {
+   allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+   allow create, update: if isAdmin() || (signedIn() && request.auth.uid == uid && !('role' in request.resource.data) && !('isAdmin' in request.resource.data));
+   allow delete: if isAdmin();
+   match /results/{resultId} {
+    allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+    allow create: if signedIn() && request.auth.uid == uid
+      && request.resource.data.keys().hasOnly(['paperId','title','score','total','completedAt'])
+      && request.resource.data.paperId is string
+      && request.resource.data.title is string
+      && request.resource.data.score is int
+      && request.resource.data.total is int
+      && request.resource.data.total > 0
+      && request.resource.data.score >= 0
+      && request.resource.data.score <= request.resource.data.total
+      && request.resource.data.completedAt == request.time;
+    allow update, delete: if isAdmin();
+   }
+  }
+ }
+}
